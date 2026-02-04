@@ -1,7 +1,7 @@
 // (c) Copyright Modaal.dev 2026
 
-import RIBs
-import RxSwift
+import Combine
+import CombineRIBs
 
 public enum LogLevel: String {
   case info = "ℹ️"
@@ -18,7 +18,7 @@ public protocol DiagnosticsLogging {
 
 /// sourcery: CreateMock
 public protocol DiagnosticsLogsObserving: DiagnosticsLogging {
-  var logs: Observable<(level: LogLevel, message: String)> { get }
+  var logs: AnyPublisher<(level: LogLevel, message: String), Never> { get }
 }
 
 /// sourcery: CreateMock

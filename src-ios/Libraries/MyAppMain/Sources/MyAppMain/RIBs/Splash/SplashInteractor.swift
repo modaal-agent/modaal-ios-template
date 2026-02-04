@@ -1,8 +1,8 @@
 // (c) Copyright Modaal.dev 2026
 
+import CombineRIBs
 import Foundation
-import RIBs
-import RxSwift
+import SharedUtility
 import SwiftUI
 
 /// sourcery: CreateMock
@@ -11,7 +11,7 @@ protocol SplashRouting: ViewableRouting {
 
 /// sourcery: CreateMock
 protocol SplashPresentable: Presentable {
-  var splashDidFinish: AnyObserver<Void>? { get set }
+  var splashDidFinish: AnyActionHandler<Void>? { get set }
 }
 
 /// sourcery: CreateMock
@@ -28,9 +28,9 @@ final class SplashInteractor: PresentableInteractor<SplashPresentable>, SplashIn
   {
     super.init(presenter: presenter)
 
-    presenter.splashDidFinish = AnyObserver { [weak self] _ in
-      guard let self else { return }
-      listener?.splashDidComplete()
+    // AnyActionHandler automatically captures self weakly
+    presenter.splashDidFinish = AnyActionHandler(self) { interactor in
+      interactor.listener?.splashDidComplete()
     }
   }
 }

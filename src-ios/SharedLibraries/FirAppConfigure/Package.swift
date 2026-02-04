@@ -13,7 +13,7 @@ let package = Package(
     .package(url: "https://github.com/akaffenberger/firebase-ios-sdk-xcframeworks.git", from: "12.7.0"),
     .package(url: "https://github.com/Quick/Nimble.git", from: "14.0.0"),
     .package(url: "https://github.com/Quick/Quick.git", from: "7.6.2"),
-    .package(url: "https://github.com/uber/RIBs-iOS.git", from: "1.0.0"),
+    .package(url: "https://github.com/modaal-agent/CombineRIBs.git", branch: "main"),
   ],
   targets: [
     .target(
@@ -24,7 +24,7 @@ let package = Package(
         .product(name: "FirebaseCrashlytics", package: "firebase-ios-sdk-xcframeworks"),
         .product(name: "FirebaseFirestore", package: "firebase-ios-sdk-xcframeworks"),
         .product(name: "FirebaseStorage", package: "firebase-ios-sdk-xcframeworks"),
-        .product(name: "RIBs", package: "RIBs-iOS"),
+        .product(name: "CombineRIBs", package: "CombineRIBs"),
       ]
     ),
     .testTarget(

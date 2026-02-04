@@ -5,7 +5,7 @@
 //  Created by AI Assistant on 2025.
 //
 
-import RIBs
+import CombineRIBs
 import MyAppMain
 
 final class SceneComponent: Component<EmptyDependency>, RootDependency {

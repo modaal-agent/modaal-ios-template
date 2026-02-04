@@ -18,13 +18,13 @@ This document provides a comprehensive guide to the RIBs (Router, Interactor, Bu
 We're using [Uber's RIBs framework](https://github.com/uber/RIBs-iOS) to build scalable app architecture.
 RIBs facilitate explicit dependencies, uni-directional data flow, and separation of UI and business logic.
 
-RxSwift is used as the underlying uni-directional data framework.
+Swift Combine is used as the underlying uni-directional data framework.
 
 **Key Benefits:**
 
 - Modular architecture with clear boundaries
 - Testable components with protocol-based mocking
-- Uni-directional data flow using RxSwift
+- Uni-directional data flow using Combine
 - Explicit dependency management
 - Scalable from simple to complex flows
 
@@ -53,7 +53,7 @@ See the Canonical View-having RIB Example for a full presenter and interactor wi
 
 - **Router NEVER directly communicates with ViewController** - it only uses ViewControllable for view hierarchy management
 - **View-less RIBs do NOT use the Presenter pattern** - they have no UI components to control
-- **Only view-having RIBs implement Presentable with Rx bindings (no listener protocol)**
+- **Only view-having RIBs implement Presentable with `AnyActionHandler` event bindings (no listener protocol)**
 - **SwiftUI-only for new UI** — All new view-having RIBs MUST implement UI in SwiftUI and use a `UIHostingController<ViewType>` presenter. Do not introduce new UIKit-based presenters.
 
 ## Protocol Organization
@@ -98,14 +98,15 @@ protocol ExampleViewControllable: ViewControllable {
 #### 3. **Interactor File** (`*Interactor.swift`)
 
 ```swift
+import SharedUtility
+
 /// sourcery: CreateMock
 protocol ExamplePresentable: Presentable {
-    // Interactor → UI (Rx binders)
-    var loading: Binder<Bool> { get }
-    var content: Binder<ContentData> { get }
+    // Interactor → UI (state updates via ViewState)
+    var viewState: ExampleViewState { get }
 
-    // UI → Interactor (Rx events)
-    var buttonTapped: Observable<Void> { get }
+    // UI → Interactor (AnyActionHandler-based events - never use raw closures)
+    var buttonTapped: AnyActionHandler<Void>? { get set }
 }
 
 /// sourcery: CreateMock
@@ -125,7 +126,7 @@ protocol ExampleListener: AnyObject {
 
 #### 4. **ViewController File** (`*ViewController.swift`) (ONLY for View-having RIBs)
 
-View controllers implement `ExamplePresentable` by providing Binders for output and Observables for user actions.
+View controllers implement `ExamplePresentable` by providing state objects for output and closure callbacks for user actions.
 
 SwiftUI presenter conventions for new UI:
 
@@ -143,7 +144,7 @@ SwiftUI presenter conventions for new UI:
 - **`*ViewControllable`**: Router view hierarchy management (in Router)
 - **`*Routing`**: Interactor → Router navigation requests (in Interactor)
 - **`*Listener`**: Child → Parent RIB communication (in Interactor)
-- **`*Presentable`**: Interactor ↔ UI contract with Rx binders (outputs) and observables (events)
+- **`*Presentable`**: Interactor ↔ UI contract with ViewState (outputs) and `AnyActionHandler` (events)
 
 ### Mock Generation
 
@@ -165,7 +166,7 @@ ExampleRIB/
 #### SwiftUI Integration (View-having RIBs)
 
 ```swift
-import RxSwift
+import SharedUtility
 import SwiftUI
 
 // View state stored in an ObservableObject
@@ -174,10 +175,10 @@ final class ExampleViewState: ObservableObject {
     @Published var title = ""
 }
 
-// SwiftUI view rendering the state and emitting actions
+// SwiftUI view rendering the state and emitting actions via AnyActionHandler
 struct ExampleView: View {
     @ObservedObject private var state: ExampleViewState // The view observes changes to the view state via @ObservedObject
-    private var buttonObserver: AnyObserver<Void>? = nil
+    private var onButtonTappedHandler: AnyActionHandler<Void>?
 
     init(state: ExampleViewState) {
       self._state = ObservedObject(wrappedValue: state)
@@ -187,13 +188,13 @@ struct ExampleView: View {
         VStack {
             if state.isLoading { ProgressView() }
             Text(state.title)
-            Button("Continue") { buttonObserver?.onNext(()) }
+            Button("Continue") { onButtonTappedHandler?.invoke() }
         }
     }
 
-    func onButtonTapped(_ observer: AnyObserver<Void>) -> Self {
+    func onButtonTapped(_ handler: AnyActionHandler<Void>?) -> Self {
         var copy = self
-        copy.buttonObserver = observer
+        copy.onButtonTappedHandler = handler
         return copy
     }
 }
@@ -252,56 +253,56 @@ AppDelegate
 
 ## Implementation Examples
 
-### Canonical View-having RIB Example (Rx + SwiftUI Presenter)
+### Canonical View-having RIB Example (Combine + SwiftUI Presenter)
 
 This is the single, canonical example for a view-having RIB.
 
 ```swift
-// Presentable defines outputs (Binders) and inputs (Observables)
+import SharedUtility
+
+// Presentable defines outputs (ViewState) and inputs (AnyActionHandler - never raw closures)
 protocol MainPresentable: Presentable {
-    var wordSets: Binder<[WordSet]> { get }
-    var wordSetSelected: Observable<UUID> { get }
+    var viewState: MainViewState { get }
+    var wordSetSelected: AnyActionHandler<UUID>? { get set }
 }
 
 final class MainInteractor: PresentableInteractor<MainPresentable>, MainInteractable {
     override func didBecomeActive() {
         super.didBecomeActive()
 
-        // Interactor → UI
-        presenter.wordSets.onNext([
+        // Interactor → UI (via ViewState)
+        presenter.viewState.wordSets = [
             WordSet(title: "Basic Greetings", subtitle: "Hello, Goodbye, Thank you", wordCount: 12, color: .blue),
             WordSet(title: "Food & Drinks", subtitle: "Restaurant vocabulary", wordCount: 24, color: .green)
-        ])
+        ]
 
-        // UI → Interactor
-        presenter.wordSetSelected
-            .subscribe(onNext: { id in
-                // route to selected word set
-                // NB: It's OK to capture strong ref to `self`, as long as the Rx subscription is bound to the Interactor's lifecycle
-                self.router?.routeToWordSet(wordSetId: id)
-            })
-            .disposeOnDeactivate(interactor: self)
+        // UI → Interactor (via AnyActionHandler - automatically captures self weakly)
+        presenter.wordSetSelected = AnyActionHandler(self) { interactor, id in
+            // route to selected word set
+            interactor.router?.routeToWordSet(wordSetId: id)
+        }
     }
 }
 
 // SwiftUI presenter implementation with UIHostingController
 final class MainViewController: UIHostingController<MainView>, MainPresentable, MainViewControllable {
-    private let viewState = MainViewState() // Note: The view controller doesn't observe the viewState, it owns the state and passes it to the view.
-    private let wordSetSelectedSubject = PublishSubject<UUID>()
+    let viewState = MainViewState() // Note: The view controller doesn't observe the viewState, it owns the state and passes it to the view.
+    var wordSetSelected: AnyActionHandler<UUID>?
+
+    // Computed property creates AnyActionHandler that weakly captures self
+    private var wordSetSelectedHandler: AnyActionHandler<UUID> {
+        AnyActionHandler(self) { controller, id in
+            controller.wordSetSelected?.invoke(id)
+        }
+    }
 
     init(themeProvider: ThemeProviding) {
         super.init(rootView: MainView(themeProvider: themeProvider, viewState: viewState))
         self.rootView = MainView(themeProvider: themeProvider, viewState: viewState)
-            .onWordSetSelected(wordSetSelectedSubject.asObserver())
+            .onWordSetSelected(wordSetSelectedHandler)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    // Interactor → UI
-    var wordSets: Binder<[WordSet]> { Binder(viewState) { $0.wordSets = $1 } }
-
-    // UI → Interactor
-    var wordSetSelected: Observable<UUID> { wordSetSelectedSubject.asObservable() }
 }
 
 // Builder.swift - Wires everything together
@@ -630,14 +631,16 @@ class ExampleRouter: ExampleRouting {
 
 Workers subclass `Worker`. The worker's lifecycle is bound to the owning interactor in `start()`.
 Workers receive all inputs through dependency injection -- interactors must not call worker methods directly.
-Workers expose Rx data streams via protocols, which are injected into owning or child RIBs;
+Workers expose Combine data streams via protocols, which are injected into owning or child RIBs;
 only these protocols are referenced by children. Workers begin their operation in `didStart()`,
-and all Rx subscriptions within should use `.disposeOnStop(self)` to ensure proper cleanup.
+and all Combine subscriptions within should use `.cancelOnStop(self)` to ensure proper cleanup.
 
 ```swift
+import Combine
+
 // Data stream-exposing protocol
 protocol DataStreamProviding {
-  var dataStream: Observable<Data> { get }
+  var dataStream: AnyPublisher<Data, Never> { get }
 }
 
 protocol ExampleWorking: Working, DataStreamProviding {
@@ -649,9 +652,9 @@ class ExampleWorker: Worker, ExampleWorking {
     private let storage: Storing
     private let authenticatedUserStream: AuthenticatedUserStreaming
 
-    private let dataStreamSubject = PublishSubject<Data>()
+    private let dataStreamSubject = PassthroughSubject<Data, Never>()
 
-    var dataStream: Observable<Data> { dataStreamSubject.asObservable() } // DataStreamProviding requirement
+    var dataStream: AnyPublisher<Data, Never> { dataStreamSubject.eraseToAnyPublisher() } // DataStreamProviding requirement
 
     init(storage: Storing,
          authenticatedUserStream: AuthenticatedUserStreaming)
@@ -661,14 +664,14 @@ class ExampleWorker: Worker, ExampleWorking {
       super.init()
     }
 
-    override func didStart() {
-      super.didStart()
+    override func didStart(_ interactorScope: InteractorScope) {
+      super.didStart(interactorScope)
 
       storage
-        .query(/*...*/) // Start Rx subscriptions.
+        .query(/*...*/) // Start Combine subscriptions.
         .map { /*...*/ } // Do business logic, etc.
-        .bind(to: dataStreamSubject)
-        .disposeOnStop(self)
+        .sink { [weak self] data in self?.dataStreamSubject.send(data) }
+        .cancelOnStop(self)
     }
 }
 ```
@@ -754,12 +757,12 @@ Note: `NavigationControllable` is a thin protocol over `ViewControllable` with r
 **For View-Having RIBs (MANDATORY):**
 
 - **NEVER** let Router directly control UI elements
-- **ALWAYS** use Presenter pattern: Interactor ↔ Presentable (Rx) ↔ ViewController
+- **ALWAYS** use Presenter pattern: Interactor ↔ Presentable (AnyActionHandler/ViewState) ↔ ViewController
 - **ViewControllable is ONLY for view hierarchy management** (present/dismiss)
-- **Interactor controls UI state via Presentable binders**
+- **Interactor controls UI state via Presentable ViewState**
 - **Interactor extends PresentableInteractor**
-- **UI sends events to Interactor via Presentable observables**
-- **ViewController implements BOTH *Presentable (Rx) AND *ViewControllable**
+- **UI sends events to Interactor via Presentable `AnyActionHandler` properties**
+- **ViewController implements BOTH *Presentable AND *ViewControllable**
 
 **For View-less RIBs:**
 
@@ -773,7 +776,7 @@ Note: `NavigationControllable` is a thin protocol over `ViewControllable` with r
 - **Dependencies** ONLY flow DOWN (Parent → Child)
 - **Listeners** for UP communication (Child → Parent)
 - **Presentable** for Interactor → UI control (view-having RIBs only)
-- UI → Interactor events are exposed via `Observable` properties on `*Presentable`
+- UI → Interactor events are exposed via `AnyActionHandler` properties on `*Presentable` (never use raw closures - they are prone to strong reference cycles)
 - **Router NEVER directly touches UI** - only view hierarchy
 - Root RIB creates all shared services (Storage, Analytics, etc.)
 - Never inject child dependencies into parents
@@ -809,44 +812,45 @@ func dismissChild() {
 - Mock all dependencies in tests
 - Test RIB lifecycle (attach/detach)
 
-#### 7. **Rx Lifecycle in Interactors**
+#### 7. **Combine Lifecycle in Interactors**
 
-- Do NOT create a DisposeBag in Interactors or Workers.
-- For **Interactors**, ALWAYS use `.disposeOnDeactivate(interactor: self)` for subscriptions made in `didBecomeActive()`.
-- For **Workers** (subclasses of RIBs `Worker`), ALWAYS use `.disposeOnStop(self)` for subscriptions made in `didStart()`; the Worker's lifecycle is bound to the owning Interactor.
-- For non-Interactor components (e.g., plain services not subclassing `Worker`), use a scoped `DisposeBag` owned by that component.
+- Do NOT create a `Set<AnyCancellable>` in Interactors or Workers.
+- For **Interactors**, ALWAYS use `.cancelOnDeactivate(interactor: self)` for subscriptions made in `didBecomeActive()`.
+- For **Workers** (subclasses of RIBs `Worker`), ALWAYS use `.cancelOnStop(self)` for subscriptions made in `didStart()`; the Worker's lifecycle is bound to the owning Interactor.
+- For non-Interactor components (e.g., plain services not subclassing `Worker`), use a scoped `Set<AnyCancellable>` owned by that component.
 
 Example:
 
 ```swift
-// Interactor starting an Rx subscription example
+import Combine
+
+// Interactor starting a Combine subscription example
 final class ExampleInteractor: Interactor, ExampleInteractable {
+  private let service: SomeService
+
   override func didBecomeActive() {
       super.didBecomeActive()
 
-      presenter.buttonTapped
-          .flatMapLatest { [service] in service.performAction() }
-          .subscribe(onNext: {
+      service.performAction()
+          .sink { [weak self] result in
             // handle events
-            // NB: It's OK to capture a strong ref to `self`, the subscription will be disposed of when the interactor is detached.
-            self.handleEvent()
-          })
-          .disposeOnDeactivate(interactor: self)
+            self?.handleEvent(result)
+          }
+          .cancelOnDeactivate(interactor: self)
   }
 }
 
-// Worker (RIBs Worker) starting an Rx subscription example
+// Worker (RIBs Worker) starting a Combine subscription example
 final class ExampleWorker: Worker {
-    override func didStart() {
-        super.didStart()
+    override func didStart(_ interactorScope: InteractorScope) {
+        super.didStart(interactorScope)
 
         service.stream
-            .subscribe(onNext: { data in
+            .sink { [weak self] data in
               // business logic
-              // NB: It's OK to capture a strong ref to `self`, the subscription will be disposed of when the worker is stopped.
-              self.processUpdate(data)
-             })
-            .disposeOnStop(self) // Automatically disposed when worker stops
+              self?.processUpdate(data)
+             }
+            .cancelOnStop(self) // Automatically cancelled when worker stops
     }
 }
 
@@ -906,13 +910,13 @@ Use this as a planning checklist for your feature spec. Capture decisions there 
 
 ```
 1. RIB type and contracts
-  - Decide View-having vs View-less. For View-having ONLY, outline the `*Presentable` outputs (Binders) and UI event streams (Observables). Define `*Listener` (child → parent) and `*Routing` methods you’ll need. See Protocol Organization and the Canonical View-having RIB Example.
+  - Decide View-having vs View-less. For View-having ONLY, outline the `*Presentable` ViewState and `AnyActionHandler` events. Define `*Listener` (child → parent) and `*Routing` methods you'll need. See Protocol Organization and the Canonical View-having RIB Example.
 2. Data and dependencies
   - List data sources, services, and workers the RIB needs. Specify the concrete service protocols to inject (don’t pass `*Dependency` to Interactors/ViewControllers). Note module boundaries. See Dependency Injection.
 3. Navigation and containers
   - Identify where this RIB lives in the hierarchy and what containers it needs (UINavigationController/UITabBarController). Confirm availability via explicit DI. If unavailable, mark [NEEDS CLARIFICATION] and propose options. See Navigation Controller Access Rules.
 4. Lifecycle and workers
-  - Note any long-running streams or background work. Decide ownership (Interactor-owned Worker?) and intended lifecycle behavior. Plan to bind Rx with `.disposeOnDeactivate(interactor:)` (Interactor) and `.disposeOnStop(self)` (Worker). See Rx Lifecycle in Interactors.
+  - Note any long-running streams or background work. Decide ownership (Interactor-owned Worker?) and intended lifecycle behavior. Plan to bind Combine with `.cancelOnDeactivate(interactor:)` (Interactor) and `.cancelOnStop(self)` (Worker). See Combine Lifecycle in Interactors.
 5. UI plan and initial data
   - Describe minimal ViewState and user actions. Plan to use a SwiftUI-hosted presenter. If real data isn’t ready, specify mock/sample data and where it comes from. See SwiftUI Integration.
 6. Parent integration plan
@@ -945,15 +949,15 @@ find . -name "*Builder.swift" | head -10
 - Q: When do I use PresentableInteractor vs Interactor?
   - A: Use PresentableInteractor only for view-having RIBs. View-less RIBs extend base Interactor and have no Presentable.
 - Q: How do I send user actions to the Interactor without a listener protocol?
-  - A: Expose `Observable` properties on the `*Presentable` (e.g., `buttonTapped`, `itemSelected`) and subscribe in the Interactor.
+  - A: Expose `AnyActionHandler` properties on the `*Presentable` (e.g., `buttonTapped: AnyActionHandler<Void>?`, `itemSelected: AnyActionHandler<UUID>?`) and set them in the Interactor using `AnyActionHandler(self) { interactor, arg in ... }`.
 - Q: How do I avoid retain cycles between Interactor and Presenter?
-  - A: Presenter should not have references to its Interactor.
-- Q: Is it OK to capture a strong ref to `self` in Rx subscriptions?
-  - A: It's OK in Interactors and Workers, as long as the Rx subscription's lifetime is bound to self (via `.disposeOnDeactivate(interactor: self)` for Interactors, `.disposeOnStop(self)` for Workers). In all other cases (non-Interactor/Worker), make sure a `[weak self]` is captured.
+  - A: Presenter should not have references to its Interactor. Use `AnyActionHandler` (from `SharedUtility`) instead of raw closures - it automatically captures the owner weakly.
+- Q: Is it OK to capture a strong ref to `self` in Combine subscriptions?
+  - A: It's OK in Interactors and Workers, as long as the Combine subscription's lifetime is bound to self (via `.cancelOnDeactivate(interactor: self)` for Interactors, `.cancelOnStop(self)` for Workers). In all other cases (non-Interactor/Worker), make sure a `[weak self]` is captured.
 
 ### Key Differences: View-having vs View-less
 
-- View-having: `PresentableInteractor<Presentable>` + Presenter pattern; UI via binders/observables
+- View-having: `PresentableInteractor<Presentable>` + Presenter pattern; UI via ViewState/AnyActionHandler
 - View-less: base `Interactor` + container controllers only; focuses on flow coordination
 
 This guide ensures consistency and prevents architectural violations when extending the RIBs codebase.
@@ -1109,9 +1113,11 @@ Events: Tapping the custom button -> onBackTapped event -> Presenter -> Interact
 (Note: "Swipe to Pop" gesture is disabled in case of a custom Navigation bar).
 
 ```swift
+import SharedUtility
+
 struct ChildView: View {
   // ...
-  private var backObserver: AnyObserver<Void>?
+  private var onBackTappedHandler: AnyActionHandler<Void>?
   // ...
   var body: some View {
     Content {
@@ -1121,7 +1127,7 @@ struct ChildView: View {
     .toolbar {
       ToolbarItem(placement: .navigationBarLeading) {
         Button(action: {
-          backObserver?.onNext(())
+          onBackTappedHandler?.invoke()
         }) {
           HStack {
             Image(systemName: "chevron.left")
@@ -1132,22 +1138,27 @@ struct ChildView: View {
     }
   }
   // ...
-  func onBack(_ observer: AnyObserver<Void>) -> Self { var c = self; c.backObserver = observer; return c }
+  func onBack(_ handler: AnyActionHandler<Void>?) -> Self { var c = self; c.onBackTappedHandler = handler; return c }
 }
 
 protocol ChildPresentable {
-  var backTapped: Observable<Void> { get }
+  var backTapped: AnyActionHandler<Void>? { get set }
 }
 
 final class ChildHostingViewController: UIHostingController<ChildView>, ChildPresentable, ChildViewControllable {
   // ...
-  private let backSubject = PublishSubject<Void>()
-  // Presentable
-  var backTapped: Observable<Void> { backSubject.asObservable() }
+  var backTapped: AnyActionHandler<Void>?
+
+  // Computed property creates AnyActionHandler that weakly captures self
+  private var backTappedHandler: AnyActionHandler<Void> {
+    AnyActionHandler(self) { controller in
+      controller.backTapped?.invoke()
+    }
+  }
 
   init() {
     let view = ChildView(state: state)
-      .onBack(backSubject.asObserver())
+      .onBack(backTappedHandler)
     super.init(rootView: view)
   }
 }
@@ -1163,21 +1174,21 @@ Proposed solution: Child View Controller overrides "viewDidDisappear, and in cas
 sends backTapped event to the Presenter -> Interactor -> Parent Interactor (via Listener) -> Router -> `router.detachChild()`.
 
 ```swift
+import SharedUtility
+
 protocol ChildPresentable {
-  var backTapped: Observable<Void> { get }
+  var backTapped: AnyActionHandler<Void>? { get set }
 }
 
 final class ChildViewController: UIHostingController<ChildView>, ChildPresentable, ChildViewControllable {
   // ...
-  private let backSubject = PublishSubject<Void>()
-  // Presentable
-  var backTapped: Observable<Void> { backSubject.asObservable() }
+  var backTapped: AnyActionHandler<Void>?
 
   // Detect standard "Back" navigation command, or "Swipe to Pop" navigation gesture
   override func viewDidDisappear(_ animated: Bool) {
     super.viewWillDisappear(animated)
     if isMovingFromParent {
-      backSubject.onNext(())
+      backTapped?.invoke()
     }
   }
 }

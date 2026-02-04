@@ -1,7 +1,7 @@
 // (c) Copyright Modaal.dev 2026
 
 import UIKit
-import RIBs
+import CombineRIBs
 
 /// sourcery: CreateMock
 protocol RootInteractable: Interactable {

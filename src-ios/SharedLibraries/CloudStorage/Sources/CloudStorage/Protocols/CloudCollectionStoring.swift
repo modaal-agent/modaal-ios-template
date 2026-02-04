@@ -1,6 +1,6 @@
 //(c) Copyright Modaal.dev 2026
 
-import RxSwift
+import Combine
 
 /// sourcery: CreateMock
 public protocol CloudStorageListResultProtocol {
@@ -10,5 +10,5 @@ public protocol CloudStorageListResultProtocol {
 
 /// sourcery: CreateMock
 public protocol CloudCollectionStoring {
-  func listAll() -> Single<CloudStorageListResultProtocol>
+  func listAll() -> AnyPublisher<CloudStorageListResultProtocol, Error>
 }

@@ -1,6 +1,6 @@
 //(c) Copyright Modaal.dev 2026
 
-import RxSwift
+import Combine
 
 public enum MergeOption {
   case overwrite
@@ -29,30 +29,30 @@ public protocol DocumentStoring {
   /// sourcery: methodName = "observeCodable"
   func observe<T: Codable>(
     /// sourcery: annotatedGenericTypes = "{T.Type}"
-    as type: T.Type) -> Observable<T?>
+    as type: T.Type) -> AnyPublisher<T?, Error>
 
-  func observe() -> Observable<[String: Any]?>
+  func observe() -> AnyPublisher<[String: Any]?, Error>
 
   /// sourcery: generictype = "T: Codable"
   /// sourcery: methodName = "setDataCodable"
   func setData<T: Codable>(
     /// sourcery: annotatedGenericTypes = "{T}"
     _ data: T,
-    mergeOption: Storage.MergeOption) -> Single<Void>
+    mergeOption: Storage.MergeOption) -> AnyPublisher<Void, Error>
 
   func setData(
     _ data: [String: Any],
-    mergeOption: Storage.MergeOption) -> Single<Void>
+    mergeOption: Storage.MergeOption) -> AnyPublisher<Void, Error>
 
-  func delete() -> Single<Void>
+  func delete() -> AnyPublisher<Void, Error>
 }
 
 public extension DocumentStoring {
-  func setData<T: Codable>(_ data: T, mergeOption: Storage.MergeOption = .overwrite) -> Single<Void> {
+  func setData<T: Codable>(_ data: T, mergeOption: Storage.MergeOption = .overwrite) -> AnyPublisher<Void, Error> {
     setData(data, mergeOption: mergeOption)
   }
 
-  func setData(_ data: [String: Any], mergeOption: Storage.MergeOption = .overwrite) -> Single<Void> {
+  func setData(_ data: [String: Any], mergeOption: Storage.MergeOption = .overwrite) -> AnyPublisher<Void, Error> {
     setData(data, mergeOption: mergeOption)
   }
 }

@@ -1,7 +1,6 @@
 // (c) Copyright Modaal.dev 2026
 
-import RIBs
-import RxSwift
+import CombineRIBs
 import FirAppConfigure
 
 /// sourcery: CreateMock

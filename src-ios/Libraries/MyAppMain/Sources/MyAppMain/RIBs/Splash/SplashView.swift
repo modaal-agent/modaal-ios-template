@@ -1,18 +1,25 @@
 // (c) Copyright Modaal.dev 2026
 
-import UIKit
-import SwiftUI
-import RxSwift
-import RIBs
+import CombineRIBs
+import SharedUtility
 import SimpleTheming
+import SwiftUI
 import Theming
+import UIKit
 
 final class SplashViewController: UIHostingController<SplashView>, SplashPresentable, ViewControllable {
 
-  var splashDidFinish: AnyObserver<Void>?
+  var splashDidFinish: AnyActionHandler<Void>?
 
   private let themeProvider: ThemeProviding
   private let viewState: SplashViewState
+
+  // Computed property creates AnyActionHandler that weakly captures self
+  private var splashDidFinishHandler: AnyActionHandler<Void> {
+    AnyActionHandler(self) { controller in
+      controller.splashDidFinish?.invoke()
+    }
+  }
 
   init(themeProvider: ThemeProviding) {
     self.themeProvider = themeProvider
@@ -30,7 +37,7 @@ final class SplashViewController: UIHostingController<SplashView>, SplashPresent
     self.rootView = SplashView(
       themeProvider: themeProvider,
       viewState: viewState)
-    .onFinish(splashDidFinish)
+    .onFinish(splashDidFinishHandler)
   }
 }
 
@@ -41,7 +48,7 @@ class SplashViewState: ObservableObject {
 struct SplashView: View {
   private let themeProvider: ThemeProviding
   @ObservedObject private var viewState: SplashViewState
-  var onFinishHandler: AnyObserver<Void>?
+  private var onFinishHandler: AnyActionHandler<Void>?
 
   init(themeProvider: ThemeProviding, viewState: SplashViewState) {
     self.themeProvider = themeProvider
@@ -69,12 +76,12 @@ struct SplashView: View {
     .onAppear {
       // Trigger finish after a delay
       DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-        onFinishHandler?.onNext(())
+        onFinishHandler?.invoke()
       }
     }
   }
 
-  func onFinish(_ handler: AnyObserver<Void>?) -> Self {
+  func onFinish(_ handler: AnyActionHandler<Void>?) -> Self {
     var copy = self
     copy.onFinishHandler = handler
     return copy

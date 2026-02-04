@@ -1,10 +1,9 @@
 // (c) Copyright Modaal.dev 2026
 
-import UIKit
-import RIBs
-import RxSwift
-import RxRelay
+import Combine
+import CombineRIBs
 import Storage
+import UIKit
 
 /// sourcery: CreateMock
 public protocol RootRouting: LaunchRouting {
@@ -20,15 +19,15 @@ final class RootInteractor: Interactor, RootInteractableInternal {
 
   //let storageWorker: StorageWorking
   let resourcesLoadingWorker: ResourcesLoadingWorking
-  let preloadingTimeoutScheduler: SchedulerType
+  let preloadingTimeoutScheduler: DispatchQueue
 
   weak var router: RootRoutingInternal?
 
-  private let splashDidCompleteRelay = ReplayRelay<Bool>.create(bufferSize: 1)
+  private let splashDidCompleteSubject = CurrentValueSubject<Bool, Never>(false)
 
   init(//storageWorker: StorageWorking,
        resourcesLoadingWorker: ResourcesLoadingWorking,
-       preloadingTimeoutScheduler: SchedulerType = ConcurrentMainScheduler.instance) {
+       preloadingTimeoutScheduler: DispatchQueue = .main) {
 
     //self.storageWorker = storageWorker
     self.resourcesLoadingWorker = resourcesLoadingWorker
@@ -48,19 +47,19 @@ final class RootInteractor: Interactor, RootInteractableInternal {
     router?.routeToSplash()
 
     // Stay on the Splash until both the Splash and ResourcesLoading complete
-    Observable
-      .combineLatest(
-        resourcesLoadingWorker.resourcesReady,
-        splashDidCompleteRelay,
-      ) { $0 && $1 }
-      .take(1)
-      .timeout(.seconds(2), scheduler: MainScheduler.instance)
-      .catchAndReturn(true)
-      .observe(on: MainScheduler.instance)
-      .subscribe(onNext: { [router] _ in
-        router?.routeToMain()
-      })
-      .disposeOnDeactivate(interactor: self)
+    Publishers.CombineLatest(
+      resourcesLoadingWorker.resourcesReady,
+      splashDidCompleteSubject.filter { $0 }
+    )
+    .map { $0 && $1 }
+    .first()
+    .timeout(.seconds(2), scheduler: DispatchQueue.main)
+    .replaceError(with: true)
+    .receive(on: DispatchQueue.main)
+    .sink { [weak router] _ in
+      router?.routeToMain()
+    }
+    .cancelOnDeactivate(interactor: self)
   }
 
   override func willResignActive() {
@@ -70,6 +69,6 @@ final class RootInteractor: Interactor, RootInteractableInternal {
   // MARK: - SplashListener
 
   func splashDidComplete() {
-    splashDidCompleteRelay.accept(true)
+    splashDidCompleteSubject.send(true)
   }
 }
