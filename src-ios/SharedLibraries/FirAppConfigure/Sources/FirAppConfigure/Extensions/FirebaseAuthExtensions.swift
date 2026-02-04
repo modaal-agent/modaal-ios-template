@@ -1,0 +1,208 @@
+// (c) Copyright Modaal.dev 2026
+
+import UIKit
+import FirebaseAuth
+import FirebaseCore
+
+final class FirebaseAuthWrapper: FirebaseAuthProtocol {
+  let auth: Auth
+
+  public init(auth: Auth) {
+    self.auth = auth
+  }
+
+  // MARK: - FirebaseAuthProtocol
+
+  public var shareAuthStateAcrossDevices: Bool {
+    get { auth.shareAuthStateAcrossDevices }
+    set { auth.shareAuthStateAcrossDevices = newValue }
+  }
+
+  public func useUserAccessGroup(_ userAccessGroup: String?) throws {
+    try auth.useUserAccessGroup(userAccessGroup)
+  }
+
+  public var currentUser: FirebaseUserProtocol? { FirebaseUserWrapper.from(user: auth.currentUser) }
+
+  public func addStateDidChangeListener(_ listener: @escaping (FirebaseAuthProtocol, FirebaseUserProtocol?) -> Void) -> FirebaseAuthStateDidChangeListenerHandle {
+    return auth.addStateDidChangeListener { auth, user in
+      listener(FirebaseAuthWrapper(auth: auth), FirebaseUserWrapper.from(user: user))
+    }
+  }
+
+  public func removeStateDidChangeListener(_ handle: FirebaseAuthStateDidChangeListenerHandle) {
+    auth.removeStateDidChangeListener(handle)
+  }
+
+  public func signInAnonymously(completion: @escaping (Result<FirebaseAuthDataResultProtocol, Error>) -> Void) {
+    auth.signInAnonymously { result, error in
+      if let result {
+        completion(.success(FirebaseAuthDataResultWrapper(result: result)))
+      } else {
+        let error = error ?? NSError(domain: "Unknown error", code: -1)
+        completion(.failure(error))
+      }
+    }
+  }
+
+  public func signIn(with credential: FirebaseAuthCredentialProtocol, completion: @escaping (Result<FirebaseAuthDataResultProtocol, Error>) -> Void) {
+    auth.signIn(with: credential as! AuthCredential) { result, error in
+      if let result {
+        completion(.success(FirebaseAuthDataResultWrapper(result: result)))
+      } else {
+        let error = error ?? NSError(domain: "Unknown error", code: -1)
+        completion(.failure(error))
+      }
+    }
+  }
+
+  public func signOut() throws {
+    try auth.signOut()
+  }
+
+  public func createUser(withEmail email: String, password: String, completion: @escaping (Result<FirebaseAuthDataResultProtocol, Error>) -> ()) {
+    auth.createUser(withEmail: email, password: password) { result, error in
+      if let result {
+        completion(.success(FirebaseAuthDataResultWrapper(result: result)))
+      } else {
+        let error = error ?? NSError(domain: "Unknown error", code: -1)
+        completion(.failure(error))
+      }
+    }
+  }
+
+  public func sendPasswordReset(withEmail email: String, completion: @escaping (Result<Void, Error>) -> ()) {
+    auth.sendPasswordReset(withEmail: email) { error in
+      if let error {
+        completion(.failure(error))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+
+  public func deleteUser(_ user: FirebaseUserProtocol, completion: @escaping (Result<Void, Error>) -> Void) {
+    guard let user = user as? FirebaseUserWrapper else { return }
+
+    user.user.delete { error in
+      if let error {
+        completion(.failure(error))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+
+  public func canHandleOpenUrl(_ url: URL) -> Bool {
+    return auth.canHandle(url)
+  }
+
+  public func canHandleRemoteNotification(_ notification: [AnyHashable : Any]) -> Bool {
+    return auth.canHandleNotification(notification)
+  }
+
+  public func setAPNSToken(_ deviceToken: Data, type: FirebaseAuthAPNSTokenType) {
+    auth.setAPNSToken(deviceToken, type: type.asFirebaseType)
+  }
+}
+
+extension FirebaseAuthAPNSTokenType {
+  var asFirebaseType: AuthAPNSTokenType {
+    switch self {
+    case .unknown: return .unknown
+    case .sandbox: return .sandbox
+    case .prod: return .prod
+    }
+  }
+}
+
+class FirebaseUserInfoWrapper: FirebaseUserInfoProtocol {
+  let userInfo: FirebaseAuth.UserInfo
+
+  init(userInfo: FirebaseAuth.UserInfo) {
+    self.userInfo = userInfo
+  }
+
+  // MARK: - FirebaseUserInfoProtocol
+  var providerID: String { userInfo.providerID }
+  var uid: String { userInfo.uid }
+  var displayName: String? { userInfo.displayName }
+  var photoURL: URL? { userInfo.photoURL }
+  var email: String? { userInfo.email }
+  var phoneNumber: String? { userInfo.phoneNumber }
+}
+
+final class FirebaseUserWrapper: FirebaseUserInfoWrapper, FirebaseUserProtocol {
+  let user: FirebaseAuth.User
+
+  init(user: FirebaseAuth.User) {
+    self.user = user
+    super.init(userInfo: user)
+  }
+
+  // MARK: - FirebaseUserProtocol
+  var isAnonymous: Bool { user.isAnonymous }
+  var isEmailVerified: Bool { user.isEmailVerified }
+  var refreshToken: String? { user.refreshToken }
+  var metadata: FirebaseUserMetadataProtocol { user.metadata }
+  var providerData: [FirebaseUserInfoProtocol] { user.providerData.map { FirebaseUserInfoWrapper(userInfo: $0) } }
+
+  func link(with credential: FirebaseAuthCredentialProtocol, completion: @escaping (Result<FirebaseAuthDataResultProtocol, Error>) -> Void) {
+    user.link(with: credential as! AuthCredential) { result, error in
+      if let result {
+        completion(.success(FirebaseAuthDataResultWrapper(result: result)))
+      } else {
+        completion(.failure(error ?? NSError(domain: "Unknown error", code: -1)))
+      }
+    }
+  }
+
+  func sendEmailVerification(completion: @escaping (Result<Void, Error>) -> Void) {
+    user.sendEmailVerification { error in
+      if let error {
+        completion(.failure(error))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+
+  func updateUserProfile(displayName: String?, photoURL: URL?, completion: @escaping (Result<Void, Error>) -> ()) {
+    let profileChangeRequest = user.createProfileChangeRequest()
+    profileChangeRequest.displayName = displayName
+    profileChangeRequest.photoURL = photoURL
+    profileChangeRequest.commitChanges { error in
+      if let error {
+        completion(.failure(error))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+}
+
+extension FirebaseUserWrapper {
+  static func from(user: User?) -> FirebaseUserWrapper? {
+    guard let user else {
+      return nil
+    }
+    return FirebaseUserWrapper(user: user)
+  }
+}
+
+extension FirebaseAuth.UserMetadata: FirebaseUserMetadataProtocol {}
+
+extension FirebaseAuth.AuthCredential: FirebaseAuthCredentialProtocol {}
+
+final class FirebaseAuthDataResultWrapper: FirebaseAuthDataResultProtocol {
+  let result: FirebaseAuth.AuthDataResult
+
+  init(result: FirebaseAuth.AuthDataResult) {
+    self.result = result
+  }
+
+  // MARK: - AuthDataResultProtocol
+  var user: FirebaseUserProtocol { FirebaseUserWrapper(user: result.user) }
+  //  var additionalUserInfo: {}
+  var credential: FirebaseAuthCredentialProtocol? { result.credential }
+}

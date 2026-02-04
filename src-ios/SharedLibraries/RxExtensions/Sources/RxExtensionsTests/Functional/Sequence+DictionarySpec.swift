@@ -1,0 +1,16 @@
+//(c) Copyright Modaal.dev 2026
+
+import Foundation
+@testable import RxExtensions
+import Foundation
+import Quick
+import Nimble
+
+final class SequenceDictionarySpec: QuickSpec {
+  override static func spec() {
+    let sut: [(String, Int)] = (0..<10).map { ("\($0)", $0) }
+    it("converts sequence to dictionary") {
+      expect(sut.dictionary()) == Dictionary(uniqueKeysWithValues: (0..<10).map { ("\($0)", $0) })
+    }
+  }
+}

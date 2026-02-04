@@ -1,0 +1,48 @@
+# OS X noise
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Xcode noise
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+contents.xcworkspacedata
+IDEWorkspaceChecks.plist
+WorkspaceSettings.xcsettings
+*.moved-aside
+*~.nib
+**/xcuserdata
+**/*.xcodeproj
+_~*
+
+# CocoaPods
+src/Pods
+Pods
+Podfile.lock
+
+# Build
+~*
+.build
+.swiftpm
+**/.buildnumber
+
+# Fastlane
+**/*/fastlane/README.md
+**/*/fastlane/report.xml
+
+gitman.log
+firebase-debug.log
+**/.keys/*
+**/node_modules/*
+.env
+.uploads/*

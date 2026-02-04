@@ -1,0 +1,10 @@
+output_dir: ${DERIVED_SOURCES_DIR}
+
+xcassets:
+  inputs:
+    - Assets/Media.xcassets
+  outputs:
+    templateName: swift5
+    output: Assets.swift
+    params:
+      forceFileNameEnum: true

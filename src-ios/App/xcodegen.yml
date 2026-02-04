@@ -1,0 +1,78 @@
+name: MyApp
+configs:
+  Debug: debug
+  AdHoc: release
+  AppStore: release
+options:
+  createIntermediateGroups: true
+  developmentLanguage: en
+  knownRegions:
+    - en
+    # - es # Uncomment to add more localization support
+    # - fr
+    # - de
+    # - ja
+packages:
+  MyAppMain:
+    path: ../Libraries/MyAppMain
+    group:
+targets:
+  MyApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources: [MyApp]
+    configFiles:
+      Debug: xcconfig/Debug.xcconfig
+      AdHoc: xcconfig/AdHoc.xcconfig
+      AppStore: xcconfig/AppStore.xcconfig
+    info:
+      path: MyApp/Info.plist
+      properties:
+        LSApplicationCategoryType: "" # e.g., public.app-category.lifestyle
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundlePackageType: $(PRODUCT_BUNDLE_PACKAGE_TYPE)
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
+        # Uncomment if location access is needed
+        # NSLocationWhenInUseUsageDescription: "MyApp needs your location to show you nearby families and organize playdates in your neighbourhood."
+        # NSLocationAlwaysAndWhenInUseUsageDescription: "MyApp needs your location to show you nearby families and organize playdates in your neighbourhood."
+        # Uncomment if microphone access is needed
+        # NSMicrophoneUsageDescription: "MyApp needs access to your microphone to record audio."
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default Configuration
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).SceneDelegate
+        UILaunchStoryboardName: LaunchScreen
+        UIRequiredDeviceCapabilities:
+          - armv7
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        DEVELOPMENT_TEAM: # TODO: Set the actual Team ID for Automatic Codesigning / publishing in App Store
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: 1.0.0
+        BUILD_NUMBER: ${ENV_BUILD_NUMBER}
+        CURRENT_PROJECT_VERSION: ${MARKETING_VERSION}.${BUILD_NUMBER}
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.MyApp
+      configs:
+        Debug:
+          PRODUCT_NAME: MyApp 🛠️
+          BUILD_NUMBER: "00000000"
+        AdHoc:
+          PRODUCT_NAME: MyApp β
+        AppStore:
+          PRODUCT_NAME: MyApp
+    dependencies:
+      - package: MyAppMain
