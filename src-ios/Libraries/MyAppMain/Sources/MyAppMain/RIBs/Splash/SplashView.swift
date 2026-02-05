@@ -56,13 +56,13 @@ struct SplashView: View {
       VStack(spacing: 20) {
         Text(localizable: .splashLogoSubtitle)
           .font(themeProvider.font(.largeTitle))
-          .foregroundColor(themeProvider.color(.textSecondary))
+          .foregroundColor(themeProvider.color(.labelSecondary))
           .multilineTextAlignment(.center)
 
         if let localizedLogoSubtitle = viewState.localizedLogoSubtitle {
           Text(localizedLogoSubtitle)
             .font(themeProvider.font(.subheadMedium))
-            .foregroundColor(themeProvider.color(.textPrimary))
+            .foregroundColor(themeProvider.color(.labelPrimary))
         }
       }
     }

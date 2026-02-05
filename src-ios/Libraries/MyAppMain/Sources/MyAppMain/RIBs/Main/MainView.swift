@@ -35,6 +35,7 @@ final class MainViewState: ObservableObject {
 }
 
 struct MainView: View {
+  @Environment(\.colorScheme) var colorScheme
   private let themeProvider: ThemeProviding
   @ObservedObject private var viewState: MainViewState
 
@@ -44,12 +45,17 @@ struct MainView: View {
   }
 
   var body: some View {
-    NavigationView {
-      ScrollView {
+    ZStack {
+      themeProvider.color(.backgroundPrimary)
+        .ignoresSafeArea()
+
+      NavigationView {
+        ScrollView {
+        }
+        .background(themeProvider.color(.backgroundPrimary))
+        .navigationTitle(LocalizedStringKey(localizable: .splashLogoSubtitle))
+        .navigationBarTitleDisplayMode(.large)
       }
-      .background(themeProvider.color(.backgroundPrimary))
-      .navigationTitle(LocalizedStringKey(localizable: .splashLogoSubtitle))
-      .navigationBarTitleDisplayMode(.large)
     }
   }
 }
