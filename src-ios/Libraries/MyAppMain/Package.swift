@@ -22,7 +22,7 @@ let package = Package(
     // 3-rd party dependencies
     .package(url: "https://github.com/liamnichols/xcstrings-tool-plugin.git", from: "1.2.0"),
     .package(url: "https://github.com/SwiftGen/SwiftGenPlugin.git", from: "6.6.2"),
-    .package(url: "https://github.com/modaal-agent/CombineRIBs.git", branch: "main"),
+    .package(url: "https://github.com/modaal-agent/CombineRIBs.git", from: "2.1.0"),
   ],
   targets: [
     .target(

@@ -13,7 +13,7 @@ let package = Package(
     .package(url: "https://github.com/akaffenberger/firebase-ios-sdk-xcframeworks.git", from: "12.7.0"),
     .package(url: "https://github.com/Quick/Nimble.git", from: "14.0.0"),
     .package(url: "https://github.com/Quick/Quick.git", from: "7.6.2"),
-    .package(url: "https://github.com/modaal-agent/CombineRIBs.git", branch: "main"),
+    .package(url: "https://github.com/modaal-agent/CombineRIBs.git", from: "2.1.0"),
   ],
   targets: [
     .target(
