@@ -1,11 +1,10 @@
 // (c) Copyright Modaal.dev 2026
 
-import UIKit
-import SwiftUI
-import RIBs
-import RxSwift
+import CombineRIBs
 import SimpleTheming
+import SwiftUI
 import Theming
+import UIKit
 
 final class MainViewController: UIHostingController<MainView>, MainPresentable, MainViewControllable {
 

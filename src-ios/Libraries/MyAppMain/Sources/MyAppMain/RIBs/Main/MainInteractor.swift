@@ -1,9 +1,7 @@
 // (c) Copyright Modaal.dev 2026
 
+import CombineRIBs
 import UIKit
-import RIBs
-import RxSwift
-import RxRelay
 
 /// sourcery: CreateMock
 protocol MainRouting: ViewableRouting {

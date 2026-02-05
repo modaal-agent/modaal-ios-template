@@ -1,8 +1,8 @@
 //(c) Copyright Modaal.dev 2026
 
-import Foundation
+import Combine
 import FirebaseStorage
-import RxSwift
+import Foundation
 
 public final class CloudStorageReference: CloudStorageReferencing {
 
@@ -37,85 +37,100 @@ public final class CloudStorageReference: CloudStorageReferencing {
 
   // MARK: - CloudCollectionStoring
 
-  public func listAll() -> Single<CloudStorageListResultProtocol> {
-    return Single.create { observer in
-      let disposable = BooleanDisposable()
+  public func listAll() -> AnyPublisher<CloudStorageListResultProtocol, Error> {
+    Future { promise in
       self.reference.listAll { result in
-        guard !disposable.isDisposed else { return }
-        observer(result.map { CloudStorageListResult(result: $0) })
+        promise(result.map { CloudStorageListResult(result: $0) })
       }
-      return disposable
     }
-
+    .eraseToAnyPublisher()
   }
 
   // MARK: - CloudFileStoring
 
-  public func getData(maxSize: Int64) -> Single<Data> {
-    return Single.create { observer in
-      let task = self.reference.getData(maxSize: maxSize) { result in
-        observer(result)
-      }
-      return Disposables.create {
-        task.cancel()
-      }
-    }
-  }
+  public func getData(maxSize: Int64) -> AnyPublisher<Data, Error> {
+    var task: StorageDownloadTask?
 
-  public func downloadToFile(localURL: URL) -> Single<URL> {
-    return Single.create { observer in
-      let task = self.reference.write(toFile: localURL) { result in
-        observer(result)
-      }
-      return Disposables.create {
-        task.cancel()
-      }
-    }
-  }
-
-  public func getDownloadURL() -> Single<URL> {
-    return Single.create { observer in
-      let disposable = BooleanDisposable()
-      self.reference.downloadURL() { result in
-        guard !disposable.isDisposed else { return }
-        observer(result)
-      }
-      return disposable
-    }
-  }
-
-  public func putData(_ data: Data) -> Single<Void> {
-    return Single.create { observer in
-      let task = self.reference.putData(data) { result in
-        observer(result.map { _ in () })
-      }
-      return Disposables.create {
-        task.cancel()
-      }
-    }
-  }
-
-  public func uploadFromFile(localURL: URL) -> Single<Void> {
-    return Single.create { observer in
-      let task = self.reference.putFile(from: localURL) { result in
-        observer(result.map { _ in () })
-      }
-      return Disposables.create {
-        task.cancel()
-      }
-    }
-  }
-
-  public func delete() -> Single<Void> {
-    return Single.create { observer in
-      let task = self.reference.delete { error in
-        if let error = error {
-          observer(.failure(error))
-        } else {
-          observer(.success(()))
+    return Deferred {
+      Future { promise in
+        task = self.reference.getData(maxSize: maxSize) { result in
+          promise(result)
         }
       }
-      return Disposables.create()
     }
+    .handleEvents(receiveCancel: {
+      task?.cancel()
+    })
+    .eraseToAnyPublisher()
+  }
+
+  public func downloadToFile(localURL: URL) -> AnyPublisher<URL, Error> {
+    var task: StorageDownloadTask?
+
+    return Deferred {
+      Future { promise in
+        task = self.reference.write(toFile: localURL) { result in
+          promise(result)
+        }
+      }
+    }
+    .handleEvents(receiveCancel: {
+      task?.cancel()
+    })
+    .eraseToAnyPublisher()
+  }
+
+  public func getDownloadURL() -> AnyPublisher<URL, Error> {
+    Future { promise in
+      self.reference.downloadURL { result in
+        promise(result)
+      }
+    }
+    .eraseToAnyPublisher()
+  }
+
+  public func putData(_ data: Data) -> AnyPublisher<Void, Error> {
+    var task: StorageUploadTask?
+
+    return Deferred {
+      Future { promise in
+        task = self.reference.putData(data) { result in
+          promise(result.map { _ in () })
+        }
+      }
+    }
+    .handleEvents(receiveCancel: {
+      task?.cancel()
+    })
+    .eraseToAnyPublisher()
+  }
+
+  public func uploadFromFile(localURL: URL) -> AnyPublisher<Void, Error> {
+    var task: StorageUploadTask?
+
+    return Deferred {
+      Future { promise in
+        task = self.reference.putFile(from: localURL) { result in
+          promise(result.map { _ in () })
+        }
+      }
+    }
+    .handleEvents(receiveCancel: {
+      task?.cancel()
+    })
+    .eraseToAnyPublisher()
+  }
+
+  public func delete() -> AnyPublisher<Void, Error> {
+    Future { promise in
+      self.reference.delete { error in
+        if let error {
+          promise(.failure(error))
+        } else {
+          promise(.success(()))
+        }
+      }
+    }
+    .eraseToAnyPublisher()
   }
 }

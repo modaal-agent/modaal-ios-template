@@ -2,7 +2,7 @@
 
 import Foundation
 import UIKit
-import RIBs
+import CombineRIBs
 import FirebaseCore
 import FirebaseAnalytics
 import FirebaseAuth

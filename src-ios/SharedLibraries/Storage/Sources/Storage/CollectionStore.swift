@@ -1,9 +1,9 @@
 //(c) Copyright Modaal.dev 2026
 
-import Foundation
-import RxSwift
+import Combine
 import FirAppConfigure
 import FirebaseFirestore
+import Foundation
 
 class QueryableCollectionStore: QueryiableCollectionStoring {
   let query: Query
@@ -34,19 +34,16 @@ class QueryableCollectionStore: QueryiableCollectionStoring {
       query: query.limit(toLast: value))
   }
 
-  func get() -> Single<[String: DocumentStoring]> {
-    Single.create { observer in
-      let disposable = BooleanDisposable()
+  func get() -> AnyPublisher<[String: DocumentStoring], Error> {
+    Future { promise in
       self.query.getDocuments { snapshot, error in
-        guard !disposable.isDisposed else { return }
-
         if let error {
-          observer(.failure(error))
+          promise(.failure(error))
           return
         }
 
         guard let snapshot, !snapshot.isEmpty else {
-          observer(.success([:]))
+          promise(.success([:]))
           return
         }
 
@@ -56,69 +53,62 @@ class QueryableCollectionStore: QueryiableCollectionStoring {
           }
           .dictionary()
 
-        observer(.success(values))
+        promise(.success(values))
       }
-
-      return disposable
     }
+    .eraseToAnyPublisher()
   }
 
-  func list() -> Observable<[String: DocumentStoring]> {
-    Observable.create { observer in
-      let disposable = BooleanDisposable()
-      let listener = self.query
-        .addSnapshotListener { snapshot, error in
-          guard !disposable.isDisposed else { return }
+  func list() -> AnyPublisher<[String: DocumentStoring], Error> {
+    let subject = PassthroughSubject<[String: DocumentStoring], Error>()
 
-          if let error {
-            observer.onError(error)
-            return
-          }
-
-          guard let snapshot, !snapshot.isEmpty else {
-            observer.onNext([:])
-            return
-          }
-
-          let values = snapshot.documents
-            .map { documentSnapshot -> (String, DocumentStoring) in
-              (documentSnapshot.documentID, DocumentStore(document: .snapshot(documentSnapshot)))
-            }
-            .dictionary()
-
-          observer.onNext(values)
-        }
-
-      return Disposables.create {
-        listener.remove()
-        disposable.dispose()
+    let listener = self.query.addSnapshotListener { snapshot, error in
+      if let error {
+        subject.send(completion: .failure(error))
+        return
       }
+
+      guard let snapshot, !snapshot.isEmpty else {
+        subject.send([:])
+        return
+      }
+
+      let values = snapshot.documents
+        .map { documentSnapshot -> (String, DocumentStoring) in
+          (documentSnapshot.documentID, DocumentStore(document: .snapshot(documentSnapshot)))
+        }
+        .dictionary()
+
+      subject.send(values)
     }
+
+    return subject
+      .handleEvents(receiveCancel: {
+        listener.remove()
+      })
+      .eraseToAnyPublisher()
   }
 
   // MARK: - Aggregation
-  func count() -> Single<Int> {
-    Single.create { observer in
-      let disposable = BooleanDisposable()
+  func count() -> AnyPublisher<Int, Error> {
+    Future { promise in
       self.query
         .count
         .getAggregation(source: .server) { aggregateSnapshot, error in
-          guard !disposable.isDisposed else { return }
-
           if let error {
-            observer(.failure(error))
+            promise(.failure(error))
             return
           }
 
           guard let aggregateSnapshot else {
-            observer(.success(0))
+            promise(.success(0))
             return
           }
 
-          observer(.success(aggregateSnapshot.count.intValue))
+          promise(.success(aggregateSnapshot.count.intValue))
         }
-      return disposable
     }
+    .eraseToAnyPublisher()
   }
 }
 

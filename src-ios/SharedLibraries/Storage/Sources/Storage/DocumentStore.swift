@@ -1,9 +1,9 @@
 //(c) Copyright Modaal.dev 2026
 
-import Foundation
-import RxSwift
+import Combine
 import FirAppConfigure
 import FirebaseFirestore
+import Foundation
 
 enum DocumentReferenceOrSnapshot {
   case reference(DocumentReference)
@@ -44,119 +44,107 @@ final class DocumentStore: DocumentStoring {
     return .success(data)
   }
 
-  func observe<T>(as type: T.Type) -> Observable<T?> where T: Codable {
-    return Observable.create { observer in
-      let disposable = BooleanDisposable()
-      let listener = self.document.reference.addSnapshotListener { snapshot, error in
-        guard !disposable.isDisposed else { return }
+  func observe<T>(as type: T.Type) -> AnyPublisher<T?, Error> where T: Codable {
+    let subject = PassthroughSubject<T?, Error>()
 
-        if let error {
-          observer.onError(error)
-          return
-        }
-
-        guard let snapshot, snapshot.exists else {
-          observer.onNext(nil)
-          return
-        }
-
-        do {
-          let data = try snapshot.data(as: T.self)
-          observer.onNext(data)
-        } catch let e {
-          observer.onError(e)
-        }
-
+    let listener = self.document.reference.addSnapshotListener { snapshot, error in
+      if let error {
+        subject.send(completion: .failure(error))
+        return
       }
-      return Disposables.create {
-        listener.remove()
-        disposable.dispose()
+
+      guard let snapshot, snapshot.exists else {
+        subject.send(nil)
+        return
+      }
+
+      do {
+        let data = try snapshot.data(as: T.self)
+        subject.send(data)
+      } catch {
+        subject.send(completion: .failure(error))
       }
     }
+
+    return subject
+      .handleEvents(receiveCancel: {
+        listener.remove()
+      })
+      .eraseToAnyPublisher()
   }
 
-  func observe() -> Observable<[String: Any]?> {
-    return Observable.create { observer in
-      let disposable = BooleanDisposable()
-      let listener = self.document.reference.addSnapshotListener { snapshot, error in
-        guard !disposable.isDisposed else { return }
+  func observe() -> AnyPublisher<[String: Any]?, Error> {
+    let subject = PassthroughSubject<[String: Any]?, Error>()
 
-        if let error {
-          observer.onError(error)
-          return
-        }
-
-        guard let snapshot, snapshot.exists else {
-          observer.onNext(nil)
-          return
-        }
-
-        let data = snapshot.data()
-        observer.onNext(data)
+    let listener = self.document.reference.addSnapshotListener { snapshot, error in
+      if let error {
+        subject.send(completion: .failure(error))
+        return
       }
-      return Disposables.create {
-        listener.remove()
-        disposable.dispose()
+
+      guard let snapshot, snapshot.exists else {
+        subject.send(nil)
+        return
       }
+
+      let data = snapshot.data()
+      subject.send(data)
     }
+
+    return subject
+      .handleEvents(receiveCancel: {
+        listener.remove()
+      })
+      .eraseToAnyPublisher()
   }
 
   func setData<T>(
     _ data: T,
-    mergeOption: Storage.MergeOption) -> Single<Void> where T: Codable
+    mergeOption: Storage.MergeOption) -> AnyPublisher<Void, Error> where T: Codable
   {
-    return Single.create { [documentReference = document.reference] observer in
-      let disposable = BooleanDisposable()
+    Future { [documentReference = document.reference] promise in
       do {
         try mergeOption.setData(documentReference, data: data) { error in
-          guard !disposable.isDisposed else { return }
-
           if let error {
-            observer(.failure(error))
+            promise(.failure(error))
           } else {
-            observer(.success(()))
+            promise(.success(()))
           }
         }
-      } catch let e {
-        observer(.failure(e))
+      } catch {
+        promise(.failure(error))
       }
-      return disposable
     }
+    .eraseToAnyPublisher()
   }
 
   func setData(
     _ data: [String: Any],
-    mergeOption: Storage.MergeOption) -> Single<Void>
+    mergeOption: Storage.MergeOption) -> AnyPublisher<Void, Error>
   {
-    return Single.create { [documentReference = document.reference] observer in
-      let disposable = BooleanDisposable()
+    Future { [documentReference = document.reference] promise in
       mergeOption.setData(documentReference, data: data) { error in
-        guard !disposable.isDisposed else { return }
-
         if let error {
-          observer(.failure(error))
+          promise(.failure(error))
         } else {
-          observer(.success(()))
+          promise(.success(()))
         }
       }
-      return disposable
     }
+    .eraseToAnyPublisher()
   }
 
-  func delete() -> Single<Void> {
-    return Single.create { observer in
-      let disposable = BooleanDisposable()
-      self.document.reference.delete() { error in
-        guard !disposable.isDisposed else { return }
-
+  func delete() -> AnyPublisher<Void, Error> {
+    Future { promise in
+      self.document.reference.delete { error in
         if let error {
-          observer(.failure(error))
+          promise(.failure(error))
         } else {
-          observer(.success(()))
+          promise(.success(()))
         }
       }
-      return disposable
     }
+    .eraseToAnyPublisher()
   }
 }
 

@@ -1,8 +1,8 @@
 // (c) Copyright Modaal.dev 2026
 
+import Combine
+import CombineRIBs
 import Foundation
-import RIBs
-import RxSwift
 import os
 
 public struct DiagnosticsWorkingHooks {
@@ -33,7 +33,7 @@ public final class DiagnosticsWorker: Worker, DiagnosticsWorking {
 
   var hooks: DiagnosticsWorkingHooks?
 
-  let _logs = PublishSubject<(level: LogLevel, message: String)>()
+  private let _logs = PassthroughSubject<(level: LogLevel, message: String), Never>()
 
   override public init() {
     super.init()
@@ -56,7 +56,7 @@ public final class DiagnosticsWorker: Worker, DiagnosticsWorking {
     let log = OSLog(subsystem: "modaal-app", category: "diagnostics")
     os_log("%{public}s", log: log, type: level.osLogType, string)
     #endif
-    _logs.onNext((level: level, message: message))
+    _logs.send((level: level, message: message))
   }
 
   public func exception(_ error: Error, userInfo: [String: Any]?, file: String, line: Int, function: String) {
@@ -74,13 +74,13 @@ public final class DiagnosticsWorker: Worker, DiagnosticsWorking {
     #if DEBUG
     NSLog(string)
     #endif
-    _logs.onNext((level: .error, message: string))
+    _logs.send((level: .error, message: string))
   }
 
   // MARK: - DiagnosticsLogsObserving
 
-  public var logs: Observable<(level: LogLevel, message: String)> {
-    _logs.asObservable()
+  public var logs: AnyPublisher<(level: LogLevel, message: String), Never> {
+    _logs.eraseToAnyPublisher()
   }
 
   // MARK: - Diagnostics

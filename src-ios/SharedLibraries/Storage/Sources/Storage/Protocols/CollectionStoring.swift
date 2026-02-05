@@ -1,6 +1,6 @@
 //(c) Copyright Modaal.dev 2026
 
-import RxSwift
+import Combine
 
 public enum FieldPath {
   case documentId
@@ -33,11 +33,11 @@ public protocol QueryiableCollectionStoring {
   func limit(to value: Int) -> QueryiableCollectionStoring
   func limit(toLast value: Int) -> QueryiableCollectionStoring
 
-  func get() -> Single<[String: DocumentStoring]>
-  func list() -> Observable<[String: DocumentStoring]>
+  func get() -> AnyPublisher<[String: DocumentStoring], Error>
+  func list() -> AnyPublisher<[String: DocumentStoring], Error>
 
   // MARK: - Aggregation
-  func count() -> Single<Int>
+  func count() -> AnyPublisher<Int, Error>
 }
 
 /// sourcery: CreateMock

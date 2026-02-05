@@ -12,14 +12,11 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/Quick/Nimble.git", from: "14.0.0"),
     .package(url: "https://github.com/Quick/Quick.git", from: "7.6.2"),
-    .package(url: "https://github.com/ReactiveX/RxSwift.git", from: "6.10.1"),
   ],
   targets: [
     .target(
       name: "RxExtensions",
       dependencies: [
-        .product(name: "RxCocoa", package: "RxSwift"),
-        .product(name: "RxSwift", package: "RxSwift"),
       ],
       plugins: [
       ]
@@ -29,10 +26,6 @@ let package = Package(
       dependencies: [
         .product(name: "Nimble", package: "Nimble"),
         .product(name: "Quick", package: "Quick"),
-        .product(name: "RxBlocking", package: "RxSwift"),
-        .product(name: "RxCocoa", package: "RxSwift"),
-        .product(name: "RxSwift", package: "RxSwift"),
-        .product(name: "RxTest", package: "RxSwift"),
         .target(name: "RxExtensions"),
       ],
       plugins: [

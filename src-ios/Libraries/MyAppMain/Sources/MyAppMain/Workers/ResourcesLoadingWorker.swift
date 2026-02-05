@@ -1,30 +1,33 @@
 // (c) Copyright Modaal.dev 2026
 
+import Combine
+import CombineRIBs
 import Foundation
-import RIBs
-import RxSwift
-import RxRelay
 
 protocol ResourcesLoadingWorking: Working {
-  var resourcesReady: Observable<Bool> { get }
+  var resourcesReady: AnyPublisher<Bool, Never> { get }
 }
 
 final class ResourcesLoadingWorker: Worker, ResourcesLoadingWorking {
 
-  var resourcesReady: Observable<Bool> {
-    return resourcesReadySubject.asObservable()
+  var resourcesReady: AnyPublisher<Bool, Never> {
+    return resourcesReadySubject
+      .filter { $0 }
+      .eraseToAnyPublisher()
   }
 
-  private let resourcesReadySubject = ReplayRelay<Bool>.create(bufferSize: 1)
+  private let resourcesReadySubject = CurrentValueSubject<Bool, Never>(false)
 
   override func didStart(_ interactorScope: any InteractorScope) {
     super.didStart(interactorScope)
 
     // Mock implementation - in a real app, this would load resources
 
-    Observable
-      .just(true).delay(.seconds(1), scheduler: MainScheduler.asyncInstance)
-      .bind(to: resourcesReadySubject)
-      .disposeOnStop(self)
+    Just(true)
+      .delay(for: .seconds(1), scheduler: DispatchQueue.main)
+      .sink { [weak self] value in
+        self?.resourcesReadySubject.send(value)
+      }
+      .cancelOnStop(self)
   }
 }

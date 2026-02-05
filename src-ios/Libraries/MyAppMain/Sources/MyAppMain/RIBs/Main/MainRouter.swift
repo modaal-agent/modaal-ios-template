@@ -1,6 +1,6 @@
 // (c) Copyright Modaal.dev 2026
 
-import RIBs
+import CombineRIBs
 import UIKit
 import SharedUtility
 import SimpleTheming

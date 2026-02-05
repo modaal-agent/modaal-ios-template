@@ -38,14 +38,14 @@ Protocol placement follows the RIBs rules:
 - `*Dependency`, `*Buildable` → in `*Builder.swift`
 - `*Interactable`, `*ViewControllable` → in `*Router.swift`
 - `*Presentable`, `*Routing`, `*Listener` → in `*Interactor.swift`
-- View-having RIBs: the ViewController implements both `*Presentable` (Rx) and `*ViewControllable`
+- View-having RIBs: the ViewController implements both `*Presentable` and `*ViewControllable`
 - All public protocols MUST be marked with `/// sourcery: CreateMock` for test scaffolding.
 - Rationale: Avoids circular references and preserves testability.
 
 ### IV. Presenter pattern (view-having RIBs only)
 
-- Interactor extends `PresentableInteractor<*Presentable>` and controls UI via Rx binders exposed via `*Presentable` protocol (no direct View/ViewController calls)
-- UI events flow to Interactor via `Observable` properties on `*Presentable`
+- Interactor extends `PresentableInteractor<*Presentable>` and controls UI via ViewState exposed via `*Presentable` protocol (no direct View/ViewController calls)
+- UI events flow to Interactor via `AnyActionHandler` properties on `*Presentable` (never use raw closures - they are prone to strong reference cycles; `AnyActionHandler` from `SharedUtility` automatically captures the owner weakly)
 - Router never updates UI; it only manages view hierarchy through `*ViewControllable`
 - New UI is ONLY developed in SwiftUI.
 - The ViewController class derives from `UIHostingController<ViewType>`, implements RIB's `*ViewControllable`, `*Presentable` protocols.
@@ -86,9 +86,8 @@ Protocol placement follows the RIBs rules:
   - Option 2: Standard back button and swipe-to-pop gesture
     - Keep the standard navigation bar/gesture. In the Presenter (UIHostingController subclass), override
       `viewDidDisappear(_:)` and, when `isMovingFromParent == true`, emit `backTapped` to notify the Interactor.
-- Presentable contract MUST expose `backTapped: Observable<Void>` for such screens.
-  The Interactor MUST subscribe to
-  `backTapped` and inform the parent via its Listener to perform detachment.
+- Presentable contract MUST expose `backTapped: AnyActionHandler<Void>?` for such screens.
+  The Interactor MUST set this handler to process back events and inform the parent via its Listener to perform detachment.
 - Parent Router MUST detach the child router on Back. If using the standard bar/gesture (Option 2), the Router MUST
   guard against double-pop by checking whether the child's view controller is still the last on the stack before
   invoking `pop(animated:)`.
@@ -100,13 +99,13 @@ Protocol placement follows the RIBs rules:
 - Never pass a `*Dependency` protocol into an Interactor or ViewController
 - Extract concrete services/workers/streams in the Builder from the Component and pass those into Interactors/ViewControllers
 - Parent routers MUST receive child `*Buildable` via initializer (static DI). No setters.
-- Data should flow via Rx streams, even between peer RIBs; avoid direct method calls. Data streams are mamnaged by Workers
+- Data should flow via Combine streams, even between peer RIBs; avoid direct method calls. Data streams are managed by Workers
 
-### VII. Lifecycle and Rx
+### VII. Lifecycle and Combine
 
-- Interactors: start Rx work in `didBecomeActive()` and use `.disposeOnDeactivate(interactor:)`
-- Workers (subclass of RIBs `Worker`): start in `didStart()` and use `.disposeOnStop(self)`; start workers from Interactors
-- Do not create `DisposeBag` in Interactors/Workers (use lifecycle helpers instead)
+- Interactors: start Combine work in `didBecomeActive()` and use `.cancelOnDeactivate(interactor:)`
+- Workers (subclass of RIBs `Worker`): start in `didStart()` and use `.cancelOnStop(self)`; start workers from Interactors
+- Do not create `Set<AnyCancellable>` in Interactors/Workers (use lifecycle helpers instead)
 
 ### VIII. RIB lifecycle (attach/detach)
 
@@ -127,14 +126,14 @@ Use this to author the feature spec before writing code. Keep it in the feature 
   - Confirm the RIB lives under `iOS/Libraries/${IOS_APP_NAME}Main/Sources/${IOS_APP_NAME}Main/RIBs/`
   - If a different module is required, justify and add to plan with explicit dependency wiring
 - RIB type & contracts:
-  - View-having vs View-less; for view-having, list Presentable outputs (Binders) and UI event streams (Observables)
+  - View-having vs View-less; for view-having, list Presentable ViewState and `AnyActionHandler` UI events
   - Define Listener (child → parent) and Routing methods needed
 - Data & dependencies:
   - Data sources/services/workers; concrete protocols to inject; do not pass `*Dependency` to Interactors/ViewControllers
 - Navigation & containers:
   - Which container is needed (UINavigationController/UITabBarController)? Confirm explicit DI ownership. If unknown, add [NEEDS CLARIFICATION] and options
 - Lifecycle & workers:
-  - Long-running streams? Which worker owns them? Note `.disposeOnDeactivate(interactor:)` and `.disposeOnStop(self)` usage
+  - Long-running streams? Which worker owns them? Note `.cancelOnDeactivate(interactor:)` and `.cancelOnStop(self)` usage
 - UI plan & initial data:
   - Minimal ViewState, user actions; mock/sample data if real service isn’t ready
 - Parent integration plan:
@@ -150,7 +149,7 @@ Do not duplicate patterns here. When implementing:
   - Protocol Organization
   - Canonical View-having RIB Example (Presenter pattern)
   - Navigation Controller Access Rules (+ reference patterns)
-  - Rx Lifecycle in Interactors/Workers
+  - Combine Lifecycle in Interactors/Workers
   - RIB Lifecycle Management (attach/detach)
   - Adding a New RIB (Spec Checklist)
 
