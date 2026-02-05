@@ -111,7 +111,7 @@ for target in "${TEST_TARGETS[@]}"; do
         -configuration "Debug" \
         -sdk "iphonesimulator" \
         -skipPackagePluginValidation \
-        | mint run xcbeautify
+        | mint run cpisciotta/xcbeautify --disable-colored-output --is-ci --disable-logging -q
 
     cd "$GIT_ROOT"
 done
