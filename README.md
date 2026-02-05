@@ -7,6 +7,7 @@ An iOS app project created with Modaal AI.
 ## Project Structure
 
 ```
+├── LICENSE             # LICENSE file
 ├── README.md           # This file
 ├── PRD.md              # Product Requirements Document (created during Refine)
 ├── PLAN.md             # Current working plan (maintained in Vibe mode)
@@ -95,6 +96,12 @@ Follows a rigorous cycle: Specification → Planning → Tasks → Implementatio
 - **Use attachments**: Share screenshots, designs, or reference images
 - **Check the plan**: In Vibe mode, the agent maintains `PLAN.md` with next steps
 - **Switch modes**: Use Vibe for speed, Specify for structure
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 

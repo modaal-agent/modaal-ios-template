@@ -1,4 +1,8 @@
 // swift-tools-version:5.9
+
+// Copyright (c) 2026 Modaal.dev
+// Licensed under the MIT License. See LICENSE file for details.
+
 import PackageDescription
 
 let package = Package(

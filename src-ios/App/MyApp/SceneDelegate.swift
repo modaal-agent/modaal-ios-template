@@ -1,9 +1,5 @@
-//
-//  SceneDelegate.swift
-//  MyApp
-//
-//  Created by AI Assistant on 2025.
-//
+// Copyright (c) 2026 Modaal.dev
+// Licensed under the MIT License. See LICENSE file for details.
 
 import UIKit
 import MyAppMain
