@@ -15,8 +15,10 @@ This document provides a comprehensive guide to the RIBs (Router, Interactor, Bu
 
 ## Overview
 
-We're using [Uber's RIBs framework](https://github.com/uber/RIBs-iOS) to build scalable app architecture.
-RIBs facilitate explicit dependencies, uni-directional data flow, and separation of UI and business logic.
+> **Scope**: This guide applies to the **main iOS app target** and its feature modules. Apple platform extensions and companion targets (Widgets, Live Activities, watchOS, App Intents, App Clips, Notification/Share extensions, etc.) do NOT use RIBs — they follow Apple-native SwiftUI patterns. See [ios-extensions-and-companions.md](ios-extensions-and-companions.md) for guidance on those targets.
+
+We're using [CombineRIBs](https://github.com/modaal-agent/CombineRIBs) framework - derived from [Uber/RIBs](https://github.com/uber/RIBs-iOS) framework -
+to build scalable app architecture. RIBs facilitate explicit dependencies, uni-directional data flow, and separation of UI and business logic.
 
 Swift Combine is used as the underlying uni-directional data framework.
 

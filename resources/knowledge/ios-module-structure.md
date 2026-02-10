@@ -8,22 +8,28 @@ Read `<project_context>...</project_context>` section in the triggering prompt, 
 
 ```
 iOS
-|- App
-   |- ${IOS_APP_NAME} // Executable iOS App Target
-   |  |- AppDelegate.swift
-   |  |- SceneDelegate.swift
-   |  |- ... (rest of the app target files)
-   |- xcodegen.yml
-   |- ${IOS_APP_NAME}.xcodeproj  // Generated from xcodegen.yml, do not edit.
-|- Libraries
-   |- ${IOS_APP_NAME}Main // The Main SPM module, containing the top-level RIBs, and immediate children.
-   |- Theming
-   |- ... // The rest of the 1-st party app-specific dependencies.
-|- SharedLibraries
-   |- CloudStorage
-   |- Diagnostics
-   |- ... // The rest of the 1-st party shared dependencies.
+├── App
+│   ├── ${IOS_APP_NAME}/          // Executable iOS App Target
+│   │   ├── AppDelegate.swift
+│   │   ├── SceneDelegate.swift
+│   │   └── ... (rest of the app target files)
+│   ├── ${IOS_APP_NAME}Widget/    // WidgetKit extension target (optional)
+│   ├── ${IOS_APP_NAME}Watch/     // watchOS companion app (optional)
+│   ├── ${IOS_APP_NAME}Clip/      // App Clip target (optional)
+│   ├── xcodegen.yml
+│   └── ${IOS_APP_NAME}.xcodeproj // Generated from xcodegen.yml, do not edit.
+├── Libraries
+│   ├── ${IOS_APP_NAME}Main/      // Main SPM module: top-level RIBs and features
+│   ├── SharedModels/              // Models shared across app + extensions (optional)
+│   ├── Theming/
+│   └── ...                        // Other 1st-party app-specific dependencies
+└── SharedLibraries
+    ├── CloudStorage/
+    ├── Diagnostics/
+    └── ...                        // Other 1st-party shared dependencies
 ```
+
+> **Note**: Extension targets (Widget, Watch, Clip, etc.) live under `iOS/App/` as separate directories, each configured as a target in `xcodegen.yml`. They do NOT use RIBs — see [ios-extensions-and-companions.md](ios-extensions-and-companions.md) for patterns and guidance. Shared business logic and models used by both the main app and extensions should live in SPM modules under `Libraries/` or `SharedLibraries/`.
 
 ## Top-level app target (`iOS/App/...`)
 
@@ -49,3 +55,37 @@ The Xcode app target must not be touched, and no updates to it are needed when i
     - Note, no xcodeproj.yml changes are required, since we're wiring the dependencies via SPM modules.
   - Document it in the plan (Module Name, purpose, dependencies).
 - In `plan.md`, validate module path for new RIBs/features adheres to SPM-first rule, and NO code is added to the top-level iOS App target under `iOS/App/...`.
+
+## Extension and Companion Target Placement
+
+Apple platform extensions (Widgets, watchOS, App Clips, Notification extensions, etc.) have their own source directories and target configurations:
+
+- Extension source code lives under `iOS/App/${IOS_APP_NAME}<ExtType>/` (e.g., `iOS/App/${IOS_APP_NAME}Widget/`)
+- Each extension is configured as a separate target in `xcodegen.yml`
+- Extensions do NOT use RIBs — they follow Apple-native SwiftUI patterns (see [ios-extensions-and-companions.md](ios-extensions-and-companions.md))
+- Shared code (models, data access, utilities) used by both the main app and extensions MUST live in SPM modules, NOT be duplicated into extension directories
+- Extension bundle identifiers MUST be prefixed with the main app's bundle identifier (e.g., `com.company.app.widget`)
+- For data sharing between the main app and extensions, use App Groups (configured via entitlements in `xcodegen.yml`)
+- Use `list_targets` MCP tool to discover existing targets before adding new ones
+
+## Standalone watchOS App Variant
+
+For **standalone watchOS projects** (where the iOS app target has been removed from xcodegen.yml), the module structure simplifies:
+
+```
+iOS
+├── App
+│   ├── ${IOS_APP_NAME}Watch/     // watchOS target — ALL feature code here
+│   └── xcodegen.yml              // Only contains the watchOS target
+├── Libraries
+│   └── SharedModels/              // Platform-agnostic shared models (optional)
+```
+
+Key differences from the standard layout:
+
+- **iOS target removed from xcodegen.yml** — the `${IOS_APP_NAME}` iOS target definition and the `packages:` section should be deleted from `xcodegen.yml`. This makes the project smaller, compilation faster, and simulator installation instantaneous.
+- **Do NOT modify `${IOS_APP_NAME}Main`** — it depends on CombineRIBs/UIKit. The module can remain on disk but is not referenced from xcodegen.yml.
+- All feature code goes in `iOS/App/${IOS_APP_NAME}Watch/` or in platform-agnostic SPM modules under `Libraries/`
+- Build with `run_ios` — the pipeline auto-detects that only watchOS targets exist and skips iOS. You can also explicitly pass `targets: ["watchos"]`.
+- watchOS targets can use **Swift 6** and flexible architecture — no mandatory pattern beyond SwiftUI + @Observable
+- The project's `AGENTS.md` should document this as a standalone watchOS project (see [ios-extensions-and-companions.md](ios-extensions-and-companions.md))

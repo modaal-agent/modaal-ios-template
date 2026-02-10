@@ -3,6 +3,7 @@
 **References**:
 
 - [DOC:IOS_RIBS](ios-RIBs.md)
+- [DOC:IOS_EXTENSIONS](ios-extensions-and-companions.md)
 
 Read `<project_context>...</project_context>` section in the triggering prompt, and parse available fields in the JSON struct:
 
@@ -14,14 +15,25 @@ This file is the authoritative, low-latency instruction set for RIBs work. It co
 
 Follow these rules in every code or plan change. If you need code-level guidance, open [DOC:IOS_RIBS] and navigate to the referenced sections.
 
+## Scope: Where RIBs Applies
+
+RIBs is **mandatory for the main iOS app target** and its feature modules. It does NOT apply to Apple platform extensions and companion targets that have incompatible lifecycle models:
+
+- **Use RIBs**: Main app screens, navigation flows, tab containers, business logic workers — anything in `${IOS_APP_NAME}Main` and feature SPM modules for the main app.
+- **Do NOT use RIBs**: WidgetKit extensions, Live Activities, watchOS companion apps, App Intents, App Clips, Notification extensions, Share extensions, Keyboard extensions, or iMessage extensions.
+- **Standalone watchOS projects**: If the project's `AGENTS.md` indicates the primary platform is watchOS (standalone), RIBs does NOT apply at all. The iOS app target is unused and the agent should skip all RIBs guidance. See [DOC:IOS_EXTENSIONS] for the standalone watchOS section.
+
+These non-RIBs targets follow Apple-native SwiftUI patterns instead. See [DOC:IOS_EXTENSIONS] for recommended patterns, data sharing, and project structure guidance for each target type. Shared business logic MUST still live in SPM modules under `Libraries/` or `SharedLibraries/`.
+
 ## Core Architecture Principles
 
 ### I. Composable RIBs Architecture
 
-- RIBs are the main building blocks of the application.
-- The application's architecture is a hierarchy RIBs (directed acyclic graph).
-- ALL new features MUST be composed of RIBs.
+- RIBs are the main building blocks of the **main iOS application**.
+- The main application's architecture is a hierarchy of RIBs (directed acyclic graph).
+- ALL new features **in the main app** MUST be composed of RIBs.
 - A feature might require a single view-having RIB, or a hierarchy of several RIBs and/or Workers. Provide reasoning behind the proposed RIBs hierarchy for the feature.
+- **Exception**: Apple platform extensions and companion targets (Widgets, Live Activities, watchOS, App Intents, etc.) do NOT use RIBs. See [DOC:IOS_EXTENSIONS].
 
 ### II. SPM-First Modules and Clear Boundaries
 
@@ -145,15 +157,20 @@ Use this to author the feature spec before writing code. Keep it in the feature 
 
 Do not duplicate patterns here. When implementing:
 
-- Read [DOC:IOS_RIBS], especially:
+- **Main app features (RIBs)** — Read [DOC:IOS_RIBS], especially:
   - Protocol Organization
   - Canonical View-having RIB Example (Presenter pattern)
   - Navigation Controller Access Rules (+ reference patterns)
   - Combine Lifecycle in Interactors/Workers
   - RIB Lifecycle Management (attach/detach)
   - Adding a New RIB (Spec Checklist)
+- **Extensions and companions** (Widgets, watchOS, Live Activities, App Intents, etc.) — Read [DOC:IOS_EXTENSIONS] for:
+  - Target-specific patterns and code examples
+  - Project structure and xcodegen.yml configuration
+  - Data sharing via App Groups
+  - Checklist for adding a new extension target
 
-If any rule here conflicts with [DOC:IOS_RIBS], follow this file’s rules and raise a doc issue to reconcile.
+If any rule here conflicts with [DOC:IOS_RIBS], follow this file's rules and raise a doc issue to reconcile.
 
 ## Creating New RIB and Scaffolding (Implementation Steps)
 
